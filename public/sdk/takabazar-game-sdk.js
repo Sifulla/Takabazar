@@ -1,70 +1,69 @@
-(function () {
-  console.log('[TakaBazar Universal Bridge Loaded]');
+(() => {
+  const pending = new Map();
+  const listeners = new Map();
+  let seq = 0;
+  let initData = null;
 
-  // Global Wallet API for Native Game Script Access
-  window.TakaBazarWallet = {
-    getBalance: async function () {
-      const res = await fetch('/api/wallet/balance');
-      const data = await res.json();
-      return data.balance || 0;
-    },
-    debit: async function (amount) {
-      const res = await fetch('/api/wallet/debit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount })
-      });
-      const data = await res.json();
-      if (data.success) {
-        window.TakaBazarBridge.updateUIBalance(data.balance);
-      }
-      return data;
-    },
-    credit: async function (amount) {
-      const res = await fetch('/api/wallet/credit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount })
-      });
-      const data = await res.json();
-      if (data.success) {
-        window.TakaBazarBridge.updateUIBalance(data.balance);
-      }
-      return data;
+  function emit(name, payload) {
+    (listeners.get(name) || []).forEach(fn => {
+      try { fn(payload); } catch {}
+    });
+  }
+  function request(type, payload = {}) {
+    const id = `tb_${Date.now()}_${++seq}`;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        pending.delete(id);
+        reject(new Error("Platform response timeout"));
+      }, 15000);
+      pending.set(id, { resolve, reject, timer });
+      parent.postMessage({ source: "TAKABAZAR_GAME", kind: "REQUEST", id, type, payload }, "*");
+    });
+  }
+
+  addEventListener("message", event => {
+    const m = event.data;
+    if (!m || m.source !== "TAKABAZAR_PLATFORM") return;
+    if (m.kind === "INIT") {
+      initData = m.payload || {};
+      emit("init", initData);
+      emit("balance", initData.wallet || {});
+      return;
     }
-  };
-
-  window.TakaBazarBridge = {
-    updateUIBalance: function (bal) {
-      // Universal Selector for Game Balance Text Elements
-      const selectors = ['#balance', '#walletBalance', '.wallet-balance', '[data-balance]', '#userBalance', '.balance-text'];
-      selectors.forEach(sel => {
-        document.querySelectorAll(sel).forEach(el => {
-          el.innerText = parseFloat(bal).toFixed(2);
-        });
-      });
-    },
-
-    bindAdminControls: function () {
-      // Universal Binding for Admin Force Crash Action
-      document.addEventListener('click', function (e) {
-        const target = e.target.closest('#forceCrashBtn, [data-force-crash], [data-admin-action="force-crash"], .btn-force-crash');
-        if (target) {
-          fetch('/api/admin/force-crash', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ targetMultiplier: 1.0 })
-          }).then(res => res.json()).then(data => {
-            alert(data.message || 'Force Crash Triggered');
-          });
-        }
-      });
+    if (m.kind === "EVENT") {
+      emit(m.type, m.payload);
+      return;
     }
-  };
-
-  // Initial Sync
-  document.addEventListener('DOMContentLoaded', () => {
-    window.TakaBazarWallet.getBalance().then(bal => window.TakaBazarBridge.updateUIBalance(bal));
-    window.TakaBazarBridge.bindAdminControls();
+    if (m.kind === "RESPONSE") {
+      const p = pending.get(m.id);
+      if (!p) return;
+      clearTimeout(p.timer);
+      pending.delete(m.id);
+      if (m.ok) p.resolve(m.payload);
+      else p.reject(new Error(m.error || "Platform request failed"));
+    }
   });
+
+  window.TakaBazarGame = Object.freeze({
+    version: 1,
+    ready: () => request("READY"),
+    getBalance: () => request("GET_BALANCE"),
+    bet: ({ stake, guess }) => request("BET", { stake, guess }),
+    crashOpenRound: () => request("CRASH_OPEN"),
+    crashBet: ({ roundId, stake, panel = 1 }) => request("CRASH_BET", { roundId, stake, panel }),
+    crashCancel: ({ betId }) => request("CRASH_CANCEL", { betId }),
+    crashStatus: ({ roundId }) => request("CRASH_STATUS", { roundId }),
+    crashCashout: ({ betId }) => request("CRASH_CASHOUT", { betId }),
+    close: () => request("CLOSE"),
+    toast: message => request("TOAST", { message: String(message || "").slice(0, 120) }),
+    on(name, fn) {
+      if (typeof fn !== "function") return () => {};
+      const a = listeners.get(name) || [];
+      a.push(fn); listeners.set(name, a);
+      return () => listeners.set(name, (listeners.get(name) || []).filter(x => x !== fn));
+    },
+    get init() { return initData; }
+  });
+
+  parent.postMessage({ source: "TAKABAZAR_GAME", kind: "REQUEST", id: `tb_boot_${Date.now()}`, type: "READY", payload: {} }, "*");
 })();

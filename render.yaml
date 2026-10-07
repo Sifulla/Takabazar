@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: takabazar-v12-10
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: ADMIN_PIN
+        sync: false
+      - key: SESSION_DAYS
+        value: "7"
+      - key: STARTING_CREDITS
+        value: "1000"

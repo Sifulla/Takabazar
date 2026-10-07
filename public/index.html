@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TakaBazar - Universal Gaming Platform</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Header / Navigation Bar -->
+  <header class="header">
+    <div class="logo">TakaBazar</div>
+    <div class="wallet-info">
+      <span>Balance: ৳ <strong id="walletBalance">0.00</strong></span>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="container">
+    <!-- Live Crash Multiplayer Dashboard (Shared State) -->
+    <section class="crash-dashboard">
+      <h2>Live Global Crash Meter</h2>
+      <div class="multiplier-display" id="globalMultiplier">1.00x</div>
+      <div class="status-badge" id="crashState">WAITING...</div>
+      
+      <!-- Recent Crash Multiplier History -->
+      <div class="crash-history">
+        <span>History: </span>
+        <div id="historyList" class="history-list"></div>
+      </div>
+    </section>
+
+    <!-- Admin Dynamic Control Panel (Integrated Live Crash Override) -->
+    <section class="admin-panel" id="adminControlPanel">
+      <h3>Admin Live Controls</h3>
+      <div class="admin-controls">
+        <input type="number" id="forceCrashTarget" placeholder="Target Multiplier (e.g., 1.50)" step="0.1" min="1">
+        <button id="forceCrashBtn" class="btn-danger" data-admin-action="force-crash">Force Crash Now</button>
+      </div>
+    </section>
+
+    <!-- Active Game Frame Section -->
+    <section class="game-wrapper">
+      <div id="gameContainer" class="game-container">
+        <!-- Dynamic Game Iframe will be injected here via app.js -->
+        <p class="placeholder-text">Please select a game to start playing.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Core Scripts & Auto-Bridge Integration -->
+  <script src="/sdk/takabazar-auto-bridge.js"></script>
+  <script src="/sdk/takabazar-game-sdk.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
